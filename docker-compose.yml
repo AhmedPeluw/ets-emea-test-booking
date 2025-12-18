@@ -1,0 +1,91 @@
+services:
+  # Base de données MongoDB
+  mongodb:
+    image: mongo:7.0
+    container_name: ets_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: ets_booking
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./docker/mongodb/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    networks:
+      - ets_network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  # Backend Symfony
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ets_backend
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./backend:/var/www/html
+      # Pas de volume vendor - laissons Dockerfile le gérer
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: dev
+      APP_DEBUG: 1
+      MONGODB_URL: mongodb://mongodb:27017
+      MONGODB_DB: ets_booking
+      JWT_SECRET_KEY: '%kernel.project_dir%/config/jwt/private.pem'
+      JWT_PUBLIC_KEY: '%kernel.project_dir%/config/jwt/public.pem'
+      JWT_PASSPHRASE: 'e7a8f3c2b9d4e1a6f8c3d9e2b7a4f1c8'
+      CORS_ALLOW_ORIGIN: '^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$'
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - ets_network
+    healthcheck:
+      test: ["CMD", "php", "-r", "echo 'ok';"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Frontend Next.js
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ets_frontend
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+      - frontend_next:/app/.next
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api
+      WATCHPACK_POLLING: true
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - ets_network
+
+networks:
+  ets_network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
+  frontend_node_modules:
+    driver: local
+  frontend_next:
+    driver: local
