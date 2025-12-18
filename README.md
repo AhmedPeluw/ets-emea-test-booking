@@ -5,7 +5,7 @@ Plateforme moderne de réservation de sessions de tests de langues.
 ## 🚀 Quick Start
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/ets-emea-test-booking.git
+git clone https://github.com/AhmedPeluw/ets-emea-test-booking.git
 cd ets-emea-test-booking
 cd backend && composer install && cd ..
 docker-compose up -d --build
